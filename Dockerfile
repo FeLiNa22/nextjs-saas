@@ -1,21 +1,22 @@
 # Stage 1: Install all dependencies (used only for the build step)
-FROM node:20-alpine AS deps
+FROM oven/bun:1-alpine AS deps
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 # Stage 2: Install production dependencies + drizzle-kit for runtime migrations
-FROM node:20-alpine AS runner-deps
+FROM oven/bun:1-alpine AS runner-deps
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json bun.lock ./
 # Install production deps only, then add drizzle-kit which is required at
 # container startup to run migrations before the server starts.
-RUN npm ci --omit=dev && npm install --no-save drizzle-kit
+RUN bun install --frozen-lockfile --production \
+    && bun add --no-save drizzle-kit
 
 # Stage 3: Build the Next.js application
-FROM node:20-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -25,14 +26,14 @@ COPY . .
 ARG NEXT_PUBLIC_BASE_URL
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
-RUN npm run build \
+RUN bun run build \
     # Ensure the drizzle output directory exists even if no migrations have
     # been generated yet (drizzle-kit push does not require it, but the COPY
     # instruction below will fail if the source path is absent).
     && mkdir -p drizzle
 
 # Stage 4: Production runner
-FROM node:20-alpine AS runner
+FROM oven/bun:1-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -43,7 +44,7 @@ RUN addgroup --system --gid 1001 nodejs \
 # Copy built Next.js output
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package.json /app/bun.lock ./
 COPY --from=builder /app/next.config.ts ./
 
 # Copy production node_modules (includes drizzle-kit for runtime migrations)
