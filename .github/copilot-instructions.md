@@ -110,6 +110,99 @@ Copy `env.example` to `.env` and fill in the required values. The key variables 
 - `DIRECT_URL` — PostgreSQL direct connection URL (used by Drizzle)
 - Any variables required by Better Auth
 
+### Forms
+
+All forms **must** follow these conventions:
+
+- **Client-side forms** must use [`react-hook-form`](https://react-hook-form.com/) with `zodResolver` from `@hookform/resolvers/zod`.
+- **Server Action forms** may alternatively use `useActionState` from `react` paired with Zod validation inside the action.
+- **Zod** (from the `zod` package) is required for all schema validation — no ad-hoc or manual validation logic.
+- Place each form's Zod schema and inferred types in a co-located `validate.ts` file in the same directory as the form.
+
+**Pattern (react-hook-form):**
+```tsx
+// validate.ts
+import { z } from "zod";
+
+export const MyFormSchema = z.object({
+  field: z.string().min(1, { message: "Field is required" }),
+});
+
+export type MyFormValues = z.infer<typeof MyFormSchema>;
+```
+
+```tsx
+// form.tsx
+"use client";
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { MyFormSchema, MyFormValues } from "./validate";
+
+export default function MyForm() {
+  const form = useForm<MyFormValues>({
+    resolver: zodResolver(MyFormSchema),
+    defaultValues: { field: "" },
+  });
+
+  function onSubmit(data: MyFormValues) {
+    // handle submission
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField
+          control={form.control}
+          name="field"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </form>
+    </Form>
+  );
+}
+```
+
+**Pattern (useActionState):**
+```tsx
+// action.ts
+"use server";
+import { z } from "zod";
+import { MyFormSchema } from "./validate";
+
+export async function myAction(_prev: unknown, formData: FormData) {
+  const result = MyFormSchema.safeParse(Object.fromEntries(formData));
+  if (!result.success) return { errors: result.error.flatten().fieldErrors };
+  // proceed with result.data
+}
+```
+
+```tsx
+// form.tsx
+"use client";
+import { useActionState } from "react";
+import { myAction } from "./action";
+
+export default function MyForm() {
+  const [state, action, isPending] = useActionState(myAction, null);
+  return (
+    <form action={action}>
+      <input name="field" />
+      {state?.errors?.field && <p>{state.errors.field[0]}</p>}
+      <button type="submit" disabled={isPending}>Submit</button>
+    </form>
+  );
+}
+```
+
 ### TypeScript
 - Strict mode is enabled.
 - Prefer explicit types; avoid `any`.
