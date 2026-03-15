@@ -3,10 +3,11 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import SignOutButton from "../(auth)/components/button-signout";
-import { getServerSession } from "@/lib/auth/get-session";
+import { createServerCaller } from "@/trpc/server";
 
 export default async function Home() {
-  const me = await getServerSession();
+  const caller = await createServerCaller();
+  const me = await caller.auth.getSession();
 
   return (
     <div className="grid min-h-screen grid-rows-[20px_1fr_20px] items-center justify-items-center gap-16 p-8 pb-20 font-[family-name:var(--font-geist-sans)] sm:p-20">

@@ -7,10 +7,8 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signIn } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +18,9 @@ import InputStartIcon from "../components/input-start-icon";
 import InputPasswordContainer from "../components/input-password";
 import { cn } from "@/lib/utils";
 import { AtSign } from "lucide-react";
+import { trpc } from "@/trpc/client";
 
 export default function SignInForm() {
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const form = useForm<SignInValues>({
@@ -33,17 +31,13 @@ export default function SignInForm() {
     },
   });
 
-  function onSubmit(data: SignInValues) {
-    startTransition(async () => {
-      const response = await signIn.username(data);
+  const signInMutation = trpc.auth.signIn.useMutation({
+    onSuccess: () => router.push("/"),
+    onError: (error) => toast.error(error.message),
+  });
 
-      if (response.error) {
-        console.log("SIGN_IN:", response.error.message);
-        toast.error(response.error.message);
-      } else {
-        router.push("/");
-      }
-    });
+  function onSubmit(data: SignInValues) {
+    signInMutation.mutate(data);
   }
 
   const getInputClassName = (fieldName: keyof SignInValues) =>
@@ -68,7 +62,7 @@ export default function SignInForm() {
                   <Input
                     placeholder="Username"
                     className={cn("peer ps-9", getInputClassName("username"))}
-                    disabled={isPending}
+                    disabled={signInMutation.isPending}
                     {...field}
                   />
                 </InputStartIcon>
@@ -89,7 +83,7 @@ export default function SignInForm() {
                     id="input-23"
                     className={cn("pe-9", getInputClassName("password"))}
                     placeholder="Password"
-                    disabled={isPending}
+                    disabled={signInMutation.isPending}
                     {...field}
                   />
                 </InputPasswordContainer>
@@ -98,7 +92,7 @@ export default function SignInForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending} className="mt-5 w-full">
+        <Button type="submit" disabled={signInMutation.isPending} className="mt-5 w-full">
           Sign In
         </Button>
       </form>

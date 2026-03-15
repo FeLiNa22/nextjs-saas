@@ -8,11 +8,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signUp } from "@/lib/auth/client";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -22,9 +20,10 @@ import InputPasswordContainer from "../components/input-password";
 import { cn } from "@/lib/utils";
 import { AtSign, MailIcon, UserIcon } from "lucide-react";
 import { GenderRadioGroup } from "../components/gender-radio-group";
+import { trpc } from "@/trpc/client";
 
 export default function SignUpForm() {
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const form = useForm<SignUpValues>({
     resolver: zodResolver(SignUpSchema),
     defaultValues: {
@@ -37,18 +36,13 @@ export default function SignUpForm() {
     },
   });
 
-  function onSubmit(data: SignUpValues) {
-    startTransition(async () => {
-      console.log("submit data:", data);
-      const response = await signUp.email(data);
+  const signUpMutation = trpc.auth.signUp.useMutation({
+    onSuccess: () => router.push("/"),
+    onError: (error) => toast.error(error.message),
+  });
 
-      if (response.error) {
-        console.log("SIGN_UP:", response.error.status);
-        toast.error(response.error.message);
-      } else {
-        redirect("/");
-      }
-    });
+  function onSubmit(data: SignUpValues) {
+    signUpMutation.mutate(data);
   }
 
   const getInputClassName = (fieldName: keyof SignUpValues) =>
@@ -73,7 +67,7 @@ export default function SignUpForm() {
                   <Input
                     placeholder="Name"
                     className={cn("peer ps-9", getInputClassName("name"))}
-                    disabled={isPending}
+                    disabled={signUpMutation.isPending}
                     {...field}
                   />
                 </InputStartIcon>
@@ -92,7 +86,7 @@ export default function SignUpForm() {
                   <Input
                     placeholder="Email"
                     className={cn("peer ps-9", getInputClassName("email"))}
-                    disabled={isPending}
+                    disabled={signUpMutation.isPending}
                     {...field}
                   />
                 </InputStartIcon>
@@ -112,7 +106,7 @@ export default function SignUpForm() {
                   <Input
                     placeholder="Username"
                     className={cn("peer ps-9", getInputClassName("username"))}
-                    disabled={isPending}
+                    disabled={signUpMutation.isPending}
                     {...field}
                   />
                 </InputStartIcon>
@@ -132,7 +126,7 @@ export default function SignUpForm() {
                   <Input
                     className={cn("pe-9", getInputClassName("password"))}
                     placeholder="Password"
-                    disabled={isPending}
+                    disabled={signUpMutation.isPending}
                     {...field}
                   />
                 </InputPasswordContainer>
@@ -152,7 +146,7 @@ export default function SignUpForm() {
                   <Input
                     className={cn("pe-9", getInputClassName("confirmPassword"))}
                     placeholder="Confirm Password"
-                    disabled={isPending}
+                    disabled={signUpMutation.isPending}
                     {...field}
                   />
                 </InputPasswordContainer>
@@ -178,7 +172,7 @@ export default function SignUpForm() {
           )}
         />
 
-        <Button type="submit" disabled={isPending} className="mt-5 w-full">
+        <Button type="submit" disabled={signUpMutation.isPending} className="mt-5 w-full">
           Sign Up
         </Button>
       </form>

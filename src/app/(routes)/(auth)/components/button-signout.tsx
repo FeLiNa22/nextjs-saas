@@ -1,27 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { signOut } from "@/lib/auth/client";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { trpc } from "@/trpc/client";
 
 export default function SignOutButton() {
-  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
 
-  const onSignOut = async () => {
-    setIsPending(true);
-    await signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          setIsPending(false);
-          redirect("/");
-        },
-      },
-    });
-  };
+  const signOutMutation = trpc.auth.signOut.useMutation({
+    onSuccess: () => router.push("/"),
+    onError: (error) => toast.error(error.message),
+  });
 
   return (
-    <Button disabled={isPending} onClick={onSignOut} variant={"destructive"}>
+    <Button
+      disabled={signOutMutation.isPending}
+      onClick={() => signOutMutation.mutate()}
+      variant={"destructive"}
+    >
       Logout
     </Button>
   );
